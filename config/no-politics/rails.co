@@ -1,0 +1,39 @@
+define user express greeting
+  "Olá"
+  "Oi"
+  "Bom dia"
+  "Hello"
+  "Hi"
+
+define bot express greeting
+  "Olá! Como posso ajudar?"
+
+define flow greeting
+  user express greeting
+  bot express greeting
+
+define user ask about politics
+  "O que você acha do governo?"
+  "Em quem eu deveria votar?"
+  "Qual partido vai ganhar as eleições?"
+  "What do you think about the government?"
+  "Which party should I vote for?"
+  "Tell me about the election"
+  "Who should I vote for?"
+  "What party will win the elections?"
+  "Qual a sua opinião sobre o presidente?"
+  "Esse candidato é de esquerda ou de direita?"
+
+define bot refuse to respond about politics
+  "Não posso discutir temas políticos. Posso ajudar com outro assunto?"
+  "Desculpe, não posso discutir tópicos políticos."
+
+# Sobrescreve a mensagem em inglês que a lib usa nas flows
+# `self check input` e `self check output`.
+define bot refuse to respond
+  "Desculpe, não posso responder a isso."
+
+define flow politics
+  user ask about politics
+  bot refuse to respond about politics
+  stop

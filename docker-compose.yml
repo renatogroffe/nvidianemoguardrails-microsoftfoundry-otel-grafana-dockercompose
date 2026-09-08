@@ -1,0 +1,145 @@
+# Exemplo que utilizei como base para este Docker Compose:
+# https://github.com/grafana/adventure/blob/main/docker-compose.yml
+services:
+  nemoguardrails:
+    image: renatogroffe/nvidia-nemo-guardrails:0.24.0-build_5
+    container_name: nemoguardrails
+    ports:
+      - "8000:8000"
+    environment:
+      NEMO_GUARDRAILS_HEALTHCHECK_URL: http://localhost:8000/v1/health
+      NEMO_GUARDRAILS_NO_USAGE_STATS: "1"
+      DO_NOT_TRACK: "1"
+      # true => desativa a UI de chat (/chat); false => mantém a UI habilitada.
+      NEMO_GUARDRAILS_DISABLE_CHAT_UI: ${NEMO_GUARDRAILS_DISABLE_CHAT_UI:-false}
+      DEPLOYMENT_ENVIRONMENT: ${DEPLOYMENT_ENVIRONMENT:-local}
+      OTEL_SERVICE_NAME: nemo-guardrails
+      OTEL_SERVICE_NAMESPACE: guardrails
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://alloy:4317
+      OTEL_EXPORTER_OTLP_PROTOCOL: grpc
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: ${OTEL_TRACES_SAMPLER_ARG:-1}
+      AZURE_OPENAI_API_KEY: <KEY>
+      AZURE_OPENAI_ENDPOINT: https://<RESOURCE_NAME>.openai.azure.com
+      AZURE_OPENAI_DEPLOYMENT: <DEPLOYMENT_NAME>
+      AZURE_OPENAI_API_VERSION: "2024-10-21"
+    volumes:
+      - ./config:/config:ro
+      - ./scripts/render_config.py:/opt/render_config.py:ro
+      - ./scripts/otel_setup.py:/opt/otel_setup.py:ro
+      - ./scripts/start_server.py:/opt/start_server.py:ro
+    depends_on:
+      alloy:
+        condition: service_started
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        python /opt/render_config.py /config /tmp/guardrails-config &&
+        exec python /opt/start_server.py --verbose --config=/tmp/guardrails-config --port 8000
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.build_opener(urllib.request.ProxyHandler({})).open('http://localhost:8000/v1/health').status==200 else 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    networks:
+      - guardrails
+
+  alloy:
+    image: grafana/alloy:v1.7.5
+    ports:
+      - 12345:12345
+      - 4318:4318
+      - 4317:4317
+    volumes:
+      - ./config.alloy:/etc/alloy/config.alloy
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    depends_on:
+      - loki
+    networks:
+      - guardrails
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    command: --config.file=/etc/prometheus/prometheus.yml --web.enable-otlp-receiver --enable-feature=exemplar-storage
+    networks:
+      - guardrails
+
+  loki:
+    image: grafana/loki:3.4.2
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml
+    command: -config.file=/etc/loki/local-config.yaml
+    networks:
+      - guardrails
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    environment:
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_BASIC_ENABLED=false
+      - GF_FEATURE_TOGGLES_ENABLE=accessControlOnCall
+    ports:
+      - 3000:3000/tcp
+    volumes:
+      - ./grafana:/etc/grafana/provisioning
+      - ./grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml
+    networks:
+      - guardrails
+
+# Tempo
+  # Tempo runs as user 10001, and docker compose creates the volume as root.
+  # As such, we need to chown the volume in order for Tempo to start correctly.
+  init:
+    image: &tempoImage grafana/tempo:2.7.1
+    user: root
+    entrypoint:
+      - "chown"
+      - "10001:10001"
+      - "/var/tempo"
+    volumes:
+      - ./tempo-data:/var/tempo
+    networks:
+      - guardrails
+
+  memcached:
+    image: memcached:1.6.29
+    container_name: memcached
+    ports:
+      - "11211:11211"
+    environment:
+      - MEMCACHED_MAX_MEMORY=64m  # Set the maximum memory usage
+      - MEMCACHED_THREADS=4       # Number of threads to use
+    networks:
+      - guardrails
+
+  tempo:
+    image: *tempoImage
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo.yaml:/etc/tempo.yaml
+    ports:
+      - "3200:3200"   # tempo
+    depends_on:
+      - init
+      - memcached
+    networks:
+      - guardrails
+
+networks:
+  guardrails:
+    driver: bridge

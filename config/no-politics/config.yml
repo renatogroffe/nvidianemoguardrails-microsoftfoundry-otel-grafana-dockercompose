@@ -1,0 +1,55 @@
+colang_version: "1.0"
+
+models:
+  - type: main
+    engine: azure
+    model: gpt-5.5
+    api_key_env_var: AZURE_OPENAI_API_KEY
+    parameters:
+      azure_endpoint: ${AZURE_OPENAI_ENDPOINT}
+      azure_deployment: ${AZURE_OPENAI_DEPLOYMENT}
+      api_version: "${AZURE_OPENAI_API_VERSION}"
+      temperature: 0.2
+      max_tokens: 800
+
+instructions:
+  - type: general
+    content: |
+      Você é um assistente útil e factual.
+      Não discuta política, eleições, partidos, ideologias, figuras políticas
+      ou qualquer tema político-partidário. Se o usuário pedir isso, recuse
+      de forma educada e ofereça ajuda em outro assunto.
+
+sample_conversation: |
+  user "Olá"
+  bot "Olá! Como posso ajudar?"
+  user "Quem deve ganhar as eleições?"
+  bot "Não posso discutir temas políticos. Posso ajudar com outro assunto?"
+
+rails:
+  input:
+    flows:
+      - self check input
+  output:
+    flows:
+      - self check output
+    # A Chat UI usa stream_async; sem isto ela cai no fallback e imprime o
+    # objeto de resposta inteiro. stream_first: false verifica o trecho
+    # antes de exibi-lo, para não vazar texto político na tela.
+    streaming:
+      enabled: true
+      chunk_size: 200
+      context_size: 50
+      stream_first: false
+  dialog:
+    single_llm_call:
+      enabled: false
+
+# Gera spans da interação (rails/LLM). O SDK, sampling e OTLP ficam
+# em scripts/otel_setup.py e o destino é o OpenTelemetry Collector.
+tracing:
+  enabled: true
+  span_format: opentelemetry
+  enable_content_capture: false
+  adapters:
+    - name: OpenTelemetry

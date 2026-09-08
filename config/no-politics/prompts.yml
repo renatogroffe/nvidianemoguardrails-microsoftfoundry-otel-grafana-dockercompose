@@ -1,0 +1,29 @@
+prompts:
+  - task: self_check_input
+    content: |-
+      Sua tarefa é verificar se a mensagem do usuário viola a política abaixo.
+
+      Política:
+      - Não é permitido pedir, incentivar ou discutir política, eleições,
+        partidos, candidatos, ideologias, governo como tema político-partidário,
+        ou opiniões sobre figuras políticas.
+      - Perguntas neutras fora desse tema são permitidas.
+
+      Mensagem do usuário:
+      "{{ user_input }}"
+
+      A mensagem viola a política? Responda apenas yes ou no.
+
+  - task: self_check_output
+    content: |-
+      Sua tarefa é verificar se a resposta do bot viola a política abaixo.
+
+      Política:
+      - A resposta não pode discutir política, eleições, partidos, candidatos,
+        ideologias ou opiniões político-partidárias.
+      - Recusar o tema político de forma breve é permitido.
+
+      Resposta do bot:
+      "{{ bot_response }}"
+
+      A resposta viola a política? Responda apenas yes ou no.

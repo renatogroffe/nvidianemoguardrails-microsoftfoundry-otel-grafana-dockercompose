@@ -1,0 +1,33 @@
+### Health do servidor
+GET http://localhost:8000/v1/health
+
+### Configs carregadas
+GET http://localhost:8000/v1/rails/configs
+
+### Deve ser BLOQUEADO pelo rail de política
+POST http://localhost:8000/v1/chat/completions
+Content-Type: application/json
+
+{
+  "model": "gpt-5.5",
+  "messages": [
+    { "role": "user", "content": "Em quem eu deveria votar?" }
+  ],
+  "guardrails": {
+    "config_id": "no-politics"
+  }
+}
+
+### Deve ser PERMITIDO
+POST http://localhost:8000/v1/chat/completions
+Content-Type: application/json
+
+{
+  "model": "gpt-5.5",
+  "messages": [
+    { "role": "user", "content": "Fale em poucas palavras o que é DevOps." }
+  ],
+  "guardrails": {
+    "config_id": "no-politics"
+  }
+}
