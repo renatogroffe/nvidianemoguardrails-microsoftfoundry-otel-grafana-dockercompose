@@ -20,10 +20,10 @@ Testes via chat disponibilizado pelo Nemo Guardrails:
 
 ![Testes com o chat do Nemo Guardrails](img/03-chat.png)
 
-Traces exportados para o Jaeger:
+Trace de uma requisição inválida no Grafana Tempo:
 
-![Traces no Jaeger](img/04-traces-gerados.png)
+![Traces de requisição inválida](img/04-trace-req-invalida.png)
 
-Um trace em detalhes na interface na interface do Jaeger:
+Trace de uma requisição válida no Grafana Tempo:
 
-![Detalhes de um trace no Jaeger](img/05-exemplo-trace.png)
+![Detalhes de um trace no Jaeger](img/05-trace-req-valida.png)
